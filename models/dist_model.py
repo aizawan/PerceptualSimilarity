@@ -19,7 +19,7 @@ class DistModel(BaseModel):
     def name(self):
         return self.model_name
 
-    def initialize(self, model='net-lin', net='alex', model_path=None, colorspace='Lab', use_gpu=True, printNet=False, spatial=False, spatial_shape=None, spatial_order=1, spatial_factor=None, is_train=False, lr=.0001, beta1=0.5):
+    def initialize(self, model='net-lin', net='alex', model_path=None, colorspace='Lab', use_gpu=True, gpu_id=0, printNet=False, spatial=False, spatial_shape=None, spatial_order=1, spatial_factor=None, is_train=False, lr=.0001, beta1=0.5):
         '''
         INPUTS
             model - ['net-lin'] for linearly calibrated network
@@ -44,6 +44,7 @@ class DistModel(BaseModel):
         self.model = model
         self.net = net
         self.use_gpu = use_gpu
+        self.gpu_id = gpu_id
         self.is_train = is_train
         self.spatial = spatial
         self.spatial_shape = spatial_shape
@@ -52,7 +53,7 @@ class DistModel(BaseModel):
 
         self.model_name = '%s [%s]'%(model,net)
         if(self.model == 'net-lin'): # pretrained net + linear layer
-            self.net = networks.PNetLin(use_gpu=use_gpu,pnet_type=net,use_dropout=True,spatial=spatial)
+            self.net = networks.PNetLin(use_gpu=use_gpu,gpu_id=self.gpu_id,pnet_type=net,use_dropout=True,spatial=spatial)
             kw = {}
             if not use_gpu:
                 kw['map_location'] = 'cpu'
@@ -63,13 +64,13 @@ class DistModel(BaseModel):
 
         elif(self.model=='net'): # pretrained network
             assert not self.spatial, 'spatial argument not supported yet for uncalibrated networks'
-            self.net = networks.PNet(use_gpu=use_gpu,pnet_type=net)
+            self.net = networks.PNet(use_gpu=use_gpu,gpu_id=self.gpu_id,pnet_type=net)
             self.is_fake_net = True
         elif(self.model in ['L2','l2']):
-            self.net = networks.L2(use_gpu=use_gpu,colorspace=colorspace) # not really a network, only for testing
+            self.net = networks.L2(use_gpu=use_gpu,gpu_id=self.gpu_id,colorspace=colorspace) # not really a network, only for testing
             self.model_name = 'L2'
         elif(self.model in ['DSSIM','dssim','SSIM','ssim']):
-            self.net = networks.DSSIM(use_gpu=use_gpu,colorspace=colorspace)
+            self.net = networks.DSSIM(use_gpu=use_gpu,gpu_id=self.gpu_id,colorspace=colorspace)
             self.model_name = 'SSIM'
         else:
             raise ValueError("Model [%s] not recognized." % self.model)
@@ -110,8 +111,8 @@ class DistModel(BaseModel):
         self.input_p0 = in1
 
         if(self.use_gpu):
-            self.input_ref = self.input_ref.cuda()
-            self.input_p0 = self.input_p0.cuda()
+            self.input_ref = self.input_ref.cuda(self.gpu_id)
+            self.input_p0 = self.input_p0.cuda(self.gpu_id)
 
         self.var_ref = Variable(self.input_ref,requires_grad=True)
         self.var_p0 = Variable(self.input_p0,requires_grad=True)
@@ -167,10 +168,10 @@ class DistModel(BaseModel):
         self.input_judge = data['judge']
 
         if(self.use_gpu):
-            self.input_ref = self.input_ref.cuda()
-            self.input_p0 = self.input_p0.cuda()
-            self.input_p1 = self.input_p1.cuda()
-            self.input_judge = self.input_judge.cuda()
+            self.input_ref = self.input_ref.cuda(self.gpu_id)
+            self.input_p0 = self.input_p0.cuda(self.gpu_id)
+            self.input_p1 = self.input_p1.cuda(self.gpu_id)
+            self.input_judge = self.input_judge.cuda(self.gpu_id)
 
         self.var_ref = Variable(self.input_ref,requires_grad=True)
         self.var_p0 = Variable(self.input_p0,requires_grad=True)
